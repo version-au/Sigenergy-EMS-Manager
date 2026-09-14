@@ -7,6 +7,8 @@ enforces your configured EMS mode, discharge power, and grid import/export
 limits during set time windows — re-applying them if anything else changes
 those values while a window is active.
 
+![Screenshot of Sigenergy EMS Manager](./images/screenshot.png)
+
 ## What it does
 
 - Lets you define one or more **schedule windows** (days + start/end time),
