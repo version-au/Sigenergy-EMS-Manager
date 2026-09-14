@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sigenergy EMS Manager</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Sigenergy EMS Manager</h1>
+    <div id="status-pill" class="pill">loading…</div>
+  </header>
+
+  <main>
+    <section class="card" id="entities-card">
+      <h2>Entities</h2>
+      <p class="hint">Map this app to your Sigenergy Local Modbus entities. Start typing to search your Home Assistant entities.</p>
+      <div class="entity-grid" id="entity-grid"></div>
+      <button id="save-entities">Save entities</button>
+      <span class="save-msg" id="entities-save-msg"></span>
+    </section>
+
+    <section class="card" id="windows-card">
+      <h2>Schedules</h2>
+      <p class="hint">Each schedule window is applied while active, and re-applied automatically if something else changes the values during that window. Power fields are entered in kW and converted to your entities' native unit (set via the add-on's "power_entities_unit" option — default W). Use the arrows to reorder — when two active schedules overlap, whichever is lower in the list wins on any field they both set.</p>
+      <div id="windows-list"></div>
+      <button id="add-window">+ Add schedule</button>
+      <button id="save-windows">Save schedules</button>
+      <span class="save-msg" id="windows-save-msg"></span>
+    </section>
+
+    <section class="card" id="status-card">
+      <h2>Status</h2>
+      <div id="status-body">loading…</div>
+    </section>
+  </main>
+
+  <template id="window-template">
+    <div class="window" data-window>
+      <div class="window-header">
+        <div class="reorder-btns">
+          <button class="move-up" title="Move up">&#9650;</button>
+          <button class="move-down" title="Move down">&#9660;</button>
+        </div>
+        <input type="text" class="w-name" placeholder="Schedule name" />
+        <label class="enabled-label"><input type="checkbox" class="w-enabled" checked /> Enabled</label>
+        <button class="remove-window">Remove</button>
+      </div>
+      <div class="window-row">
+        <label>Days
+          <div class="days" data-days>
+            <label><input type="checkbox" value="mon" checked>Mon</label>
+            <label><input type="checkbox" value="tue" checked>Tue</label>
+            <label><input type="checkbox" value="wed" checked>Wed</label>
+            <label><input type="checkbox" value="thu" checked>Thu</label>
+            <label><input type="checkbox" value="fri" checked>Fri</label>
+            <label><input type="checkbox" value="sat" checked>Sat</label>
+            <label><input type="checkbox" value="sun" checked>Sun</label>
+          </div>
+        </label>
+      </div>
+      <div class="window-row">
+        <label>Start <input type="time" class="w-start" /></label>
+        <label>End <input type="time" class="w-end" /></label>
+      </div>
+      <div class="window-row">
+        <label>EMS mode
+          <input type="text" class="w-ems-mode" placeholder="e.g. Command discharging (output power from PV first)" />
+        </label>
+      </div>
+      <div class="window-row">
+        <label>Charge power (kW) <input type="number" step="0.1" class="w-charge" /></label>
+        <label>Discharge power (kW) <input type="number" step="0.1" class="w-discharge" /></label>
+        <label>Stop discharge at SoC (%) <input type="number" class="w-soc-stop" /></label>
+      </div>
+      <div class="window-row">
+        <label>Import limit (kW) <input type="number" step="0.1" class="w-import" /></label>
+        <label>Export limit (kW) <input type="number" step="0.1" class="w-export" /></label>
+      </div>
+      <div class="window-row notify-row">
+        <label class="enabled-label"><input type="checkbox" class="w-notify-enabled" /> Notify when this schedule becomes active</label>
+      </div>
+      <div class="window-row notify-fields">
+        <label>Notify service <input type="text" class="w-notify-service" placeholder="e.g. persistent_notification.create or notify.mobile_app_myphone" /></label>
+        <label>Title (optional) <input type="text" class="w-notify-title" placeholder="Sigenergy EMS" /></label>
+      </div>
+      <div class="window-row notify-fields">
+        <label class="full-width">Message (optional) <input type="text" class="w-notify-message" placeholder="Defaults to '<schedule name> schedule is now active'" /></label>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
