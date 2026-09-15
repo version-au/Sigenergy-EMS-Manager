@@ -86,16 +86,18 @@ schedule ends, and lowers the limit smoothly as that happens — rather than
 exporting/importing flat-out and then abruptly stopping.
 
 - **Discharge ramp** — shows up once a schedule's EMS mode is set to
-  either "Command Discharging" option. Enable "Smoothly ramp export limit
-  down..." and it uses that schedule's existing "Stop discharge at SoC
-  (%)" as the target. The discharge power and export limit are both
-  recalculated each poll as `(current SoC − target SoC) ÷ 100 × battery
-  capacity ÷ hours remaining in the window`, capped at whatever you've set
-  as that schedule's discharge power ceiling.
+  either "Command Discharging" option. Enable "Ramp export limit" and it
+  uses that schedule's existing "Stop discharge at SoC (%)" as the target.
+  Only the **export limit** is recalculated each poll, as `(current SoC −
+  target SoC) ÷ 100 × battery capacity ÷ hours remaining in the window`,
+  capped at that schedule's configured discharge power (used as a ceiling
+  only — the discharge power setting itself is left as configured, not
+  overwritten).
 - **Charge ramp** — shows up once a schedule's EMS mode is set to either
-  "Command Charging" option. Enable "Smoothly ramp import limit down..."
-  and set a **Charge target SoC (%)** — the ceiling to charge up to. Same
-  math in reverse, capped at that schedule's charge power ceiling.
+  "Command Charging" option. Enable "Ramp import limit" and set a
+  **Charge target SoC (%)** — the ceiling to charge up to. Same math in
+  reverse, adjusting only the **import limit** and capped at that
+  schedule's configured charge power (again just a ceiling, not modified).
 - Both require **Battery capacity (kWh)** to be set in the new **System**
   card, since that's what converts a SoC percentage into an energy amount.
   Without it, ramping is silently skipped and the schedule just uses its

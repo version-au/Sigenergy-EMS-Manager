@@ -235,11 +235,12 @@ class Scheduler:
         status: dict,
     ) -> None:
         """Instead of exporting at a flat (often high) power for the whole
-        window then hard-stopping at the SoC floor, pace the discharge so
-        it lands on the SoC target right as the window ends."""
+        window then hard-stopping at the SoC floor, pace the export limit
+        so it lands on the SoC target right as the window ends. Only the
+        export limit is touched - the schedule's discharge power setting
+        (if any) is left as configured."""
         soc_target = merged["soc_stop_percent"]
         if soc_value <= soc_target:
-            merged["discharge_power_kw"] = 0
             merged["export_limit_kw"] = 0
             return
         end_dt = _window_end_datetime(window, now)
@@ -250,10 +251,9 @@ class Scheduler:
         if ceiling is not None:
             required_kw = min(required_kw, ceiling)
         required_kw = max(required_kw, 0)
-        merged["discharge_power_kw"] = round(required_kw, 3)
         merged["export_limit_kw"] = round(required_kw, 3)
         status["actions"].append(
-            f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> {required_kw:.2f}kW"
+            f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> export limit {required_kw:.2f}kW"
         )
 
     def _apply_charge_ramp(
@@ -266,10 +266,11 @@ class Scheduler:
         status: dict,
     ) -> None:
         """Same idea as the discharge ramp, but for charging up to a target
-        SoC by the end of the window instead of a flat import limit."""
+        SoC by the end of the window instead of a flat import limit. Only
+        the import limit is touched - the schedule's charge power setting
+        (if any) is left as configured."""
         soc_target = window["charge_target_percent"]
         if soc_value >= soc_target:
-            merged["charge_power_kw"] = 0
             merged["import_limit_kw"] = 0
             return
         end_dt = _window_end_datetime(window, now)
@@ -280,10 +281,9 @@ class Scheduler:
         if ceiling is not None:
             required_kw = min(required_kw, ceiling)
         required_kw = max(required_kw, 0)
-        merged["charge_power_kw"] = round(required_kw, 3)
         merged["import_limit_kw"] = round(required_kw, 3)
         status["actions"].append(
-            f"Charge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> {required_kw:.2f}kW"
+            f"Charge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> import limit {required_kw:.2f}kW"
         )
 
     async def _send_notification(self, window: dict, status: dict) -> None:
