@@ -53,6 +53,7 @@ No Home Assistant automations are required for this logic once it's set up
 | Battery SoC (sensor) | Used for the discharge cutoff |
 | Grid import limit (number) | If your inverter/firmware exposes this via Modbus |
 | Grid export limit (number) | If your inverter/firmware exposes this via Modbus |
+| Home consumption power (sensor, optional) | Used by the discharge ramp to net off house load - see below |
 
 If your integration doesn't expose import/export limit registers locally,
 leave those fields blank — the rest of the app still works.
@@ -102,6 +103,18 @@ exporting/importing flat-out and then abruptly stopping.
   card, since that's what converts a SoC percentage into an energy amount.
   Without it, ramping is silently skipped and the schedule just uses its
   flat configured values as before.
+- **Consumption-aware export ramp** — if you map a **Home consumption
+  power** sensor, the discharge ramp becomes smarter about what it
+  actually asks the grid for. The battery's total output covers your
+  house load first, and only the surplus is exported — so the ramp
+  computes a target *total* discharge rate from the SoC/time math (capped
+  at your discharge power ceiling, same as before), then subtracts current
+  consumption from that to get the export limit. This also means export +
+  consumption can never exceed your discharge power ceiling, since the
+  cap is applied before the subtraction — the battery is never asked to
+  put out more than it's configured for. Leave this sensor unmapped and
+  the ramp behaves exactly as before (export limit = full target, no
+  consumption offset).
 - If SoC is already past the target when a ramp-enabled window becomes
   active, the relevant **limit** (export or import) is held at 0 rather
   than ramping "backwards" — the configured discharge/charge power is

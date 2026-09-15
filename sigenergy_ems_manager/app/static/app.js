@@ -6,6 +6,7 @@ const ENTITY_FIELDS = [
   ["soc_sensor", "Battery SoC (sensor entity)"],
   ["import_limit_number", "Grid import limit (number entity)"],
   ["export_limit_number", "Grid export limit (number entity)"],
+  ["consumption_sensor", "Home consumption power (sensor entity, optional)"],
 ];
 
 // Must match scheduler.py's DISCHARGE_MODES / CHARGE_MODES exactly.

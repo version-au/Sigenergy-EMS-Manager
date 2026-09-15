@@ -22,6 +22,7 @@ DEFAULT_CONFIG = {
         "soc_sensor": "",
         "import_limit_number": "",
         "export_limit_number": "",
+        "consumption_sensor": "",
     },
     "settings": {
         "battery_capacity_kwh": None,

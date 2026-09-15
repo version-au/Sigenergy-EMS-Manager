@@ -169,6 +169,18 @@ class Scheduler:
             and mode_window.get("discharge_ramp_enabled")
         )
 
+        consumed_kw = None
+        if discharge_ramp_active and entities.get("consumption_sensor"):
+            consumption_state = await self.ha.get_state(entities["consumption_sensor"])
+            try:
+                consumed_kw = (
+                    float(consumption_state["state"]) / self.power_entity_scale
+                    if consumption_state
+                    else None
+                )
+            except (TypeError, ValueError):
+                consumed_kw = None
+
         # SoC-based discharge cutoff: if configured and battery has reached
         # the floor, force discharge power to 0 regardless of the window.
         # Skipped when the discharge ramp is active for this window - the
@@ -192,7 +204,9 @@ class Scheduler:
                 and mode_window.get("discharge_ramp_enabled")
                 and merged.get("soc_stop_percent") is not None
             ):
-                self._apply_discharge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
+                self._apply_discharge_ramp(
+                    mode_window, merged, soc_value, capacity_kwh, now, status, consumed_kw
+                )
             elif (
                 mode in CHARGE_MODES
                 and mode_window.get("charge_ramp_enabled")
@@ -246,12 +260,22 @@ class Scheduler:
         capacity_kwh: float,
         now: datetime,
         status: dict,
+        consumed_kw: Optional[float] = None,
     ) -> None:
         """Instead of exporting at a flat (often high) power for the whole
         window then hard-stopping at the SoC floor, pace the export limit
         so it lands on the SoC target right as the window ends. Only the
         export limit is touched - the schedule's discharge power setting
-        (if any) is left as configured."""
+        (if any) is left as configured.
+
+        If a home consumption reading is available, it's subtracted from
+        the target total discharge rate to get the export limit, since the
+        battery's total output covers house load first and only the
+        surplus is actually exported. The target total discharge rate is
+        capped at the schedule's discharge power ceiling *before* that
+        subtraction, so (export limit + consumption) never asks the
+        battery for more than it's configured to put out.
+        """
         soc_target = merged["soc_stop_percent"]
         if soc_value <= soc_target:
             merged["export_limit_kw"] = 0
@@ -259,15 +283,26 @@ class Scheduler:
         end_dt = _window_end_datetime(window, now)
         remaining_hours = max((end_dt - now).total_seconds() / 3600, MIN_RAMP_HOURS)
         energy_kwh = (soc_value - soc_target) / 100 * capacity_kwh
-        required_kw = energy_kwh / remaining_hours
+        required_total_kw = energy_kwh / remaining_hours
         ceiling = merged.get("discharge_power_kw")
         if ceiling is not None:
-            required_kw = min(required_kw, ceiling)
-        required_kw = max(required_kw, 0)
-        merged["export_limit_kw"] = round(required_kw, 3)
-        status["actions"].append(
-            f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> export limit {required_kw:.2f}kW"
-        )
+            required_total_kw = min(required_total_kw, ceiling)
+        required_total_kw = max(required_total_kw, 0)
+
+        if consumed_kw is not None and consumed_kw > 0:
+            export_kw = max(required_total_kw - consumed_kw, 0)
+            merged["export_limit_kw"] = round(export_kw, 3)
+            status["actions"].append(
+                f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> "
+                f"target output {required_total_kw:.2f}kW - consumption {consumed_kw:.2f}kW "
+                f"-> export limit {export_kw:.2f}kW"
+            )
+        else:
+            merged["export_limit_kw"] = round(required_total_kw, 3)
+            status["actions"].append(
+                f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h "
+                f"-> export limit {required_total_kw:.2f}kW"
+            )
 
     def _apply_charge_ramp(
         self,

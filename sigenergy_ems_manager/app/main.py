@@ -72,6 +72,7 @@ class EntitiesPayload(BaseModel):
     soc_sensor: str = ""
     import_limit_number: str = ""
     export_limit_number: str = ""
+    consumption_sensor: str = ""
 
 
 class SettingsPayload(BaseModel):
