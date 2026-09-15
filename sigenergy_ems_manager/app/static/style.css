@@ -71,7 +71,7 @@ main {
   color: var(--muted);
 }
 
-input[type="text"], input[type="number"], input[type="time"] {
+input[type="text"], input[type="number"], input[type="time"], select {
   background: #0f1115;
   border: 1px solid var(--border);
   color: var(--text);
@@ -151,6 +151,19 @@ button#add-window {
 
 .notify-fields label.full-width {
   flex: 1;
+}
+
+.ramp-fields {
+  display: none;
+}
+
+.ramp-fields.show {
+  display: flex;
+}
+
+.ramp-discharge .enabled-label,
+.ramp-charge .enabled-label {
+  color: var(--accent);
 }
 
 .window-header .w-name {

@@ -67,6 +67,43 @@ already natively in kW, set the add-on option `power_entities_unit` to
 `kW` (Settings → Add-ons → Sigenergy EMS Manager → Configuration) so no
 conversion happens.
 
+## EMS mode
+
+The EMS mode field is a dropdown matching the exact options exposed by the
+Sigenergy Local Modbus select entity: PCS Remote Control, Standby, Maximum
+Self Consumption, Command Charging (Grid First), Command Charging (PV
+First), Command Discharging (PV First), Command Discharging (ESS First),
+and V2G. Leave it on "-- don't manage --" for a schedule that shouldn't
+touch the EMS mode at all.
+
+## Smooth discharge/charge ramping
+
+Setting a flat discharge power for a whole window and only stopping once
+SoC drops to your floor tends to export hard right up until it hits a
+cliff. Ramping paces it instead: every poll, the add-on recalculates how
+much power is needed to land exactly on your SoC target right as the
+schedule ends, and lowers the limit smoothly as that happens — rather than
+exporting/importing flat-out and then abruptly stopping.
+
+- **Discharge ramp** — shows up once a schedule's EMS mode is set to
+  either "Command Discharging" option. Enable "Smoothly ramp export limit
+  down..." and it uses that schedule's existing "Stop discharge at SoC
+  (%)" as the target. The discharge power and export limit are both
+  recalculated each poll as `(current SoC − target SoC) ÷ 100 × battery
+  capacity ÷ hours remaining in the window`, capped at whatever you've set
+  as that schedule's discharge power ceiling.
+- **Charge ramp** — shows up once a schedule's EMS mode is set to either
+  "Command Charging" option. Enable "Smoothly ramp import limit down..."
+  and set a **Charge target SoC (%)** — the ceiling to charge up to. Same
+  math in reverse, capped at that schedule's charge power ceiling.
+- Both require **Battery capacity (kWh)** to be set in the new **System**
+  card, since that's what converts a SoC percentage into an energy amount.
+  Without it, ramping is silently skipped and the schedule just uses its
+  flat configured values as before.
+- If SoC is already past the target when a ramp-enabled window becomes
+  active, the relevant power/limit is held at 0 rather than ramping
+  "backwards".
+
 ## Reordering schedules
 
 Use the ▲/▼ buttons on each schedule card to move it up or down, then hit
@@ -128,7 +165,7 @@ image — s6's "legacy service" wrapping was found to not reliably pass the
 container's environment (including `SUPERVISOR_TOKEN`) through to a plain
 Dockerfile `CMD`, which silently broke every write.
 
-## Notes / current limitations (v0.3)
+## Notes / current limitations (v0.4)
 
 - Windows are matched by local wall-clock time; if the free-power period or
   PV-rate period shifts daily (e.g. published by your retailer), you'll

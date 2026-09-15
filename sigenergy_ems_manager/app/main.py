@@ -74,6 +74,10 @@ class EntitiesPayload(BaseModel):
     export_limit_number: str = ""
 
 
+class SettingsPayload(BaseModel):
+    battery_capacity_kwh: float | None = None
+
+
 class Window(BaseModel):
     id: str
     name: str
@@ -87,6 +91,9 @@ class Window(BaseModel):
     soc_stop_percent: float | None = None
     import_limit_kw: float | None = None
     export_limit_kw: float | None = None
+    discharge_ramp_enabled: bool = False
+    charge_ramp_enabled: bool = False
+    charge_target_percent: float | None = None
     notify_enabled: bool = False
     notify_service: str | None = None
     notify_title: str | None = None
@@ -106,6 +113,14 @@ async def get_config():
 async def set_entities(payload: EntitiesPayload):
     cfg = storage.load_config()
     cfg["entities"] = payload.model_dump()
+    storage.save_config(cfg)
+    return cfg
+
+
+@app.post("/api/settings")
+async def set_settings(payload: SettingsPayload):
+    cfg = storage.load_config()
+    cfg["settings"] = payload.model_dump()
     storage.save_config(cfg)
     return cfg
 

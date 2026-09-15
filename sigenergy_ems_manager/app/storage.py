@@ -23,6 +23,9 @@ DEFAULT_CONFIG = {
         "import_limit_number": "",
         "export_limit_number": "",
     },
+    "settings": {
+        "battery_capacity_kwh": None,
+    },
     "windows": [],
     "status": {},
 }
@@ -41,6 +44,8 @@ def load_config() -> dict:
                 data.setdefault(key, val)
             for key, val in DEFAULT_CONFIG["entities"].items():
                 data["entities"].setdefault(key, val)
+            for key, val in DEFAULT_CONFIG["settings"].items():
+                data["settings"].setdefault(key, val)
             return data
         except (json.JSONDecodeError, OSError) as exc:
             log.error("Failed to read config, falling back to defaults: %s", exc)

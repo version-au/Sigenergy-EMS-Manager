@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, time as dtime
+from datetime import datetime, time as dtime, timedelta
 from typing import Optional
 
 from ha_client import HAClient
@@ -9,6 +9,16 @@ import storage
 log = logging.getLogger("sigen_ems.scheduler")
 
 DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+# Must match the option text of the Sigenergy Local Modbus EMS mode select
+# entity exactly - these are used both for the UI dropdown and to decide
+# when discharge/charge ramping applies.
+DISCHARGE_MODES = {"Command Discharging (PV First)", "Command Discharging (ESS First)"}
+CHARGE_MODES = {"Command Charging (Grid First)", "Command Charging (PV First)"}
+
+# Floor under remaining window time when computing a ramp rate, so a window
+# that's about to close doesn't produce a divide-by-near-zero power spike.
+MIN_RAMP_HOURS = 1 / 60
 
 
 def _parse_hhmm(value: str) -> dtime:
@@ -33,6 +43,20 @@ def _window_is_active(window: dict, now: datetime) -> bool:
 
 def _active_windows(windows: list[dict], now: datetime) -> list[dict]:
     return [w for w in windows if _window_is_active(w, now)]
+
+
+def _window_end_datetime(window: dict, now: datetime) -> datetime:
+    """The next occurrence of this window's end time, for computing how
+    much time is left in the schedule right now."""
+    start_t = _parse_hhmm(window["start"])
+    end_t = _parse_hhmm(window["end"])
+    end_dt = datetime.combine(now.date(), end_t)
+    if start_t <= end_t:
+        return end_dt
+    # crosses midnight: end lands "tomorrow" once we're past the start time
+    if now.time() >= start_t:
+        return end_dt + timedelta(days=1)
+    return end_dt
 
 
 class Scheduler:
@@ -80,6 +104,8 @@ class Scheduler:
     async def _tick(self) -> None:
         cfg = storage.load_config()
         entities = cfg["entities"]
+        settings = cfg.get("settings", {})
+        capacity_kwh = settings.get("battery_capacity_kwh")
         now = datetime.now()
         active = _active_windows(cfg.get("windows", []), now)
         active_ids = {w["id"] for w in active}
@@ -118,19 +144,48 @@ class Scheduler:
                 if w.get(key) is not None:
                     merged[key] = w[key]
 
-        # SoC-based discharge cutoff: if configured and battery has reached
-        # the floor, force discharge power to 0 regardless of the window.
-        if merged.get("soc_stop_percent") is not None and entities.get("soc_sensor"):
+        # The window that actually set the winning ems_mode - ramp settings
+        # and the window's own start/end time are sourced from it.
+        mode_window = next(
+            (w for w in reversed(active) if w.get("ems_mode") == merged.get("ems_mode")),
+            None,
+        )
+
+        needs_soc = merged.get("soc_stop_percent") is not None or (
+            mode_window
+            and (mode_window.get("discharge_ramp_enabled") or mode_window.get("charge_ramp_enabled"))
+        )
+        soc_value = None
+        if needs_soc and entities.get("soc_sensor"):
             soc_state = await self.ha.get_state(entities["soc_sensor"])
             try:
                 soc_value = float(soc_state["state"]) if soc_state else None
             except (TypeError, ValueError):
                 soc_value = None
-            if soc_value is not None and soc_value <= merged["soc_stop_percent"]:
+
+        # SoC-based discharge cutoff: if configured and battery has reached
+        # the floor, force discharge power to 0 regardless of the window.
+        if merged.get("soc_stop_percent") is not None and soc_value is not None:
+            if soc_value <= merged["soc_stop_percent"]:
                 merged["discharge_power_kw"] = 0
                 status["actions"].append(
                     f"SoC {soc_value}% <= cutoff {merged['soc_stop_percent']}% - discharge held at 0kW"
                 )
+
+        if mode_window and soc_value is not None and capacity_kwh:
+            mode = merged.get("ems_mode")
+            if (
+                mode in DISCHARGE_MODES
+                and mode_window.get("discharge_ramp_enabled")
+                and merged.get("soc_stop_percent") is not None
+            ):
+                self._apply_discharge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
+            elif (
+                mode in CHARGE_MODES
+                and mode_window.get("charge_ramp_enabled")
+                and mode_window.get("charge_target_percent") is not None
+            ):
+                self._apply_charge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
 
         await self._apply_ems_mode(entities, merged, status)
         await self._apply_number(
@@ -169,6 +224,67 @@ class Scheduler:
         cfg["status"] = status
         storage.save_config(cfg)
         self._previously_active = active_ids
+
+    def _apply_discharge_ramp(
+        self,
+        window: dict,
+        merged: dict,
+        soc_value: float,
+        capacity_kwh: float,
+        now: datetime,
+        status: dict,
+    ) -> None:
+        """Instead of exporting at a flat (often high) power for the whole
+        window then hard-stopping at the SoC floor, pace the discharge so
+        it lands on the SoC target right as the window ends."""
+        soc_target = merged["soc_stop_percent"]
+        if soc_value <= soc_target:
+            merged["discharge_power_kw"] = 0
+            merged["export_limit_kw"] = 0
+            return
+        end_dt = _window_end_datetime(window, now)
+        remaining_hours = max((end_dt - now).total_seconds() / 3600, MIN_RAMP_HOURS)
+        energy_kwh = (soc_value - soc_target) / 100 * capacity_kwh
+        required_kw = energy_kwh / remaining_hours
+        ceiling = merged.get("discharge_power_kw")
+        if ceiling is not None:
+            required_kw = min(required_kw, ceiling)
+        required_kw = max(required_kw, 0)
+        merged["discharge_power_kw"] = round(required_kw, 3)
+        merged["export_limit_kw"] = round(required_kw, 3)
+        status["actions"].append(
+            f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> {required_kw:.2f}kW"
+        )
+
+    def _apply_charge_ramp(
+        self,
+        window: dict,
+        merged: dict,
+        soc_value: float,
+        capacity_kwh: float,
+        now: datetime,
+        status: dict,
+    ) -> None:
+        """Same idea as the discharge ramp, but for charging up to a target
+        SoC by the end of the window instead of a flat import limit."""
+        soc_target = window["charge_target_percent"]
+        if soc_value >= soc_target:
+            merged["charge_power_kw"] = 0
+            merged["import_limit_kw"] = 0
+            return
+        end_dt = _window_end_datetime(window, now)
+        remaining_hours = max((end_dt - now).total_seconds() / 3600, MIN_RAMP_HOURS)
+        energy_kwh = (soc_target - soc_value) / 100 * capacity_kwh
+        required_kw = energy_kwh / remaining_hours
+        ceiling = merged.get("charge_power_kw")
+        if ceiling is not None:
+            required_kw = min(required_kw, ceiling)
+        required_kw = max(required_kw, 0)
+        merged["charge_power_kw"] = round(required_kw, 3)
+        merged["import_limit_kw"] = round(required_kw, 3)
+        status["actions"].append(
+            f"Charge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> {required_kw:.2f}kW"
+        )
 
     async def _send_notification(self, window: dict, status: dict) -> None:
         service_full = (window.get("notify_service") or "").strip()

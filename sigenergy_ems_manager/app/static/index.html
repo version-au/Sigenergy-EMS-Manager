@@ -21,6 +21,15 @@
       <span class="save-msg" id="entities-save-msg"></span>
     </section>
 
+    <section class="card" id="settings-card">
+      <h2>System</h2>
+      <p class="hint">Used to pace the discharge/charge ramp settings on schedules below — how much energy a 1% SoC change represents.</p>
+      <label>Battery capacity (kWh) <input type="number" step="0.1" id="battery-capacity" /></label>
+      <br />
+      <button id="save-settings">Save settings</button>
+      <span class="save-msg" id="settings-save-msg"></span>
+    </section>
+
     <section class="card" id="windows-card">
       <h2>Schedules</h2>
       <p class="hint">Each schedule window is applied while active, and re-applied automatically if something else changes the values during that window. Power fields are entered in kW and converted to your entities' native unit (set via the add-on's "power_entities_unit" option — default kW). Use the arrows to reorder — when two active schedules overlap, whichever is lower in the list wins on any field they both set.</p>
@@ -66,7 +75,17 @@
       </div>
       <div class="window-row">
         <label>EMS mode
-          <input type="text" class="w-ems-mode" placeholder="e.g. Command discharging (output power from PV first)" />
+          <select class="w-ems-mode">
+            <option value="">-- don't manage --</option>
+            <option value="PCS Remote Control">PCS Remote Control</option>
+            <option value="Standby">Standby</option>
+            <option value="Maximum Self Consumption">Maximum Self Consumption</option>
+            <option value="Command Charging (Grid First)">Command Charging (Grid First)</option>
+            <option value="Command Charging (PV First)">Command Charging (PV First)</option>
+            <option value="Command Discharging (PV First)">Command Discharging (PV First)</option>
+            <option value="Command Discharging (ESS First)">Command Discharging (ESS First)</option>
+            <option value="V2G">V2G</option>
+          </select>
         </label>
       </div>
       <div class="window-row">
@@ -77,6 +96,15 @@
       <div class="window-row">
         <label>Import limit (kW) <input type="number" step="0.1" class="w-import" /></label>
         <label>Export limit (kW) <input type="number" step="0.1" class="w-export" /></label>
+      </div>
+      <div class="window-row ramp-fields ramp-discharge">
+        <label class="enabled-label"><input type="checkbox" class="w-discharge-ramp" /> Smoothly ramp export limit down to reach the SoC target by the end of this schedule (instead of exporting flat-out then stopping)</label>
+      </div>
+      <div class="window-row ramp-fields ramp-charge">
+        <label class="enabled-label"><input type="checkbox" class="w-charge-ramp" /> Smoothly ramp import limit down as it approaches a target SoC by the end of this schedule</label>
+      </div>
+      <div class="window-row ramp-fields ramp-charge">
+        <label>Charge target SoC (%) <input type="number" class="w-charge-target-soc" /></label>
       </div>
       <div class="window-row notify-row">
         <label class="enabled-label"><input type="checkbox" class="w-notify-enabled" /> Notify when this schedule becomes active</label>

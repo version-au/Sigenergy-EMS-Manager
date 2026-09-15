@@ -8,6 +8,18 @@ const ENTITY_FIELDS = [
   ["export_limit_number", "Grid export limit (number entity)"],
 ];
 
+// Must match scheduler.py's DISCHARGE_MODES / CHARGE_MODES exactly.
+const DISCHARGE_MODES = new Set(["Command Discharging (PV First)", "Command Discharging (ESS First)"]);
+const CHARGE_MODES = new Set(["Command Charging (Grid First)", "Command Charging (PV First)"]);
+
+function updateRampVisibility(node) {
+  const mode = node.querySelector(".w-ems-mode").value;
+  const isDischarge = DISCHARGE_MODES.has(mode);
+  const isCharge = CHARGE_MODES.has(mode);
+  node.querySelectorAll(".ramp-discharge").forEach((el) => el.classList.toggle("show", isDischarge));
+  node.querySelectorAll(".ramp-charge").forEach((el) => el.classList.toggle("show", isCharge));
+}
+
 let entityDatalistBuilt = false;
 
 async function fetchJSON(url, options) {
@@ -77,6 +89,9 @@ function renderWindow(win) {
   node.querySelector(".w-soc-stop").value = win.soc_stop_percent ?? "";
   node.querySelector(".w-import").value = win.import_limit_kw ?? "";
   node.querySelector(".w-export").value = win.export_limit_kw ?? "";
+  node.querySelector(".w-discharge-ramp").checked = !!win.discharge_ramp_enabled;
+  node.querySelector(".w-charge-ramp").checked = !!win.charge_ramp_enabled;
+  node.querySelector(".w-charge-target-soc").value = win.charge_target_percent ?? "";
   node.querySelector(".w-notify-enabled").checked = !!win.notify_enabled;
   node.querySelector(".w-notify-service").value = win.notify_service || "";
   node.querySelector(".w-notify-title").value = win.notify_title || "";
@@ -86,6 +101,9 @@ function renderWindow(win) {
   node.querySelectorAll("[data-days] input").forEach((cb) => {
     cb.checked = days.includes(cb.value);
   });
+
+  updateRampVisibility(node);
+  node.querySelector(".w-ems-mode").addEventListener("change", () => updateRampVisibility(node));
 
   node.querySelector(".remove-window").addEventListener("click", () => {
     node.remove();
@@ -146,6 +164,9 @@ function collectWindows() {
       soc_stop_percent: num(".w-soc-stop"),
       import_limit_kw: num(".w-import"),
       export_limit_kw: num(".w-export"),
+      discharge_ramp_enabled: node.querySelector(".w-discharge-ramp").checked,
+      charge_ramp_enabled: node.querySelector(".w-charge-ramp").checked,
+      charge_target_percent: num(".w-charge-target-soc"),
       notify_enabled: node.querySelector(".w-notify-enabled").checked,
       notify_service: node.querySelector(".w-notify-service").value.trim() || null,
       notify_title: node.querySelector(".w-notify-title").value.trim() || null,
@@ -163,6 +184,7 @@ function flashSaved(id) {
 async function loadConfig() {
   const cfg = await fetchJSON("api/config");
   renderEntityGrid(cfg.entities);
+  document.getElementById("battery-capacity").value = cfg.settings?.battery_capacity_kwh ?? "";
   renderWindows(cfg.windows || []);
 }
 
@@ -173,6 +195,16 @@ async function saveEntities() {
     body: JSON.stringify(collectEntities()),
   });
   flashSaved("entities-save-msg");
+}
+
+async function saveSettings() {
+  const raw = document.getElementById("battery-capacity").value;
+  await fetchJSON("api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ battery_capacity_kwh: raw === "" ? null : Number(raw) }),
+  });
+  flashSaved("settings-save-msg");
 }
 
 async function saveWindows() {
@@ -203,6 +235,7 @@ async function refreshStatus() {
 }
 
 document.getElementById("save-entities").addEventListener("click", saveEntities);
+document.getElementById("save-settings").addEventListener("click", saveSettings);
 document.getElementById("save-windows").addEventListener("click", saveWindows);
 document.getElementById("add-window").addEventListener("click", () => {
   document.getElementById("windows-list").appendChild(
