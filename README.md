@@ -55,6 +55,7 @@ No Home Assistant automations are required for this logic once it's set up
 | Battery SoC (sensor) | Used for the discharge cutoff |
 | Grid import limit (number) | If your inverter/firmware exposes this via Modbus |
 | Grid export limit (number) | If your inverter/firmware exposes this via Modbus |
+| Home consumption power (sensor, optional) | Used by the discharge ramp to net off house load - see below |
 
 If your integration doesn't expose import/export limit registers locally,
 leave those fields blank — the rest of the app still works.
@@ -68,6 +69,61 @@ the Local Modbus integration's power-limit entities. If your entities are
 already natively in kW, set the add-on option `power_entities_unit` to
 `kW` (Settings → Add-ons → Sigenergy EMS Manager → Configuration) so no
 conversion happens.
+
+## EMS mode
+
+The EMS mode field is a dropdown matching the exact options exposed by the
+Sigenergy Local Modbus select entity: PCS Remote Control, Standby, Maximum
+Self Consumption, Command Charging (Grid First), Command Charging (PV
+First), Command Discharging (PV First), Command Discharging (ESS First),
+and V2G. Leave it on "-- don't manage --" for a schedule that shouldn't
+touch the EMS mode at all.
+
+## Smooth discharge/charge ramping
+
+Setting a flat discharge power for a whole window and only stopping once
+SoC drops to your floor tends to export hard right up until it hits a
+cliff. Ramping paces it instead: every poll, the add-on recalculates how
+much power is needed to land exactly on your SoC target right as the
+schedule ends, and lowers the limit smoothly as that happens — rather than
+exporting/importing flat-out and then abruptly stopping.
+
+- **Discharge ramp** — shows up once a schedule's EMS mode is set to
+  either "Command Discharging" option. Enable "Ramp export limit" and it
+  uses that schedule's existing "Stop discharge at SoC (%)" as the target.
+  Only the **export limit** is recalculated each poll, as `(current SoC −
+  target SoC) ÷ 100 × battery capacity ÷ hours remaining in the window`,
+  capped at that schedule's configured discharge power (used as a ceiling
+  only — the discharge power setting itself is left as configured, not
+  overwritten).
+- **Charge ramp** — shows up once a schedule's EMS mode is set to either
+  "Command Charging" option. Enable "Ramp import limit" and set a
+  **Charge target SoC (%)** — the ceiling to charge up to. Same math in
+  reverse, adjusting only the **import limit** and capped at that
+  schedule's configured charge power (again just a ceiling, not modified).
+- Both require **Battery capacity (kWh)** to be set in the new **System**
+  card, since that's what converts a SoC percentage into an energy amount.
+  Without it, ramping is silently skipped and the schedule just uses its
+  flat configured values as before.
+- **Consumption-aware export ramp** — if you map a **Home consumption
+  power** sensor, the discharge ramp becomes smarter about what it
+  actually asks the grid for. The battery's total output covers your
+  house load first, and only the surplus is exported — so the ramp
+  computes a target *total* discharge rate from the SoC/time math (capped
+  at your discharge power ceiling, same as before), then subtracts current
+  consumption from that to get the export limit. This also means export +
+  consumption can never exceed your discharge power ceiling, since the
+  cap is applied before the subtraction — the battery is never asked to
+  put out more than it's configured for. Leave this sensor unmapped and
+  the ramp behaves exactly as before (export limit = full target, no
+  consumption offset).
+- If SoC is already past the target when a ramp-enabled window becomes
+  active, the relevant **limit** (export or import) is held at 0 rather
+  than ramping "backwards" — the configured discharge/charge power is
+  never touched by this, on the same schedule or any other. This also
+  supersedes the older plain "Stop discharge at SoC (%)" cutoff, which
+  used to zero the discharge power directly: with discharge ramp enabled,
+  only the export limit is zeroed at cutoff instead.
 
 ## Reordering schedules
 
@@ -130,7 +186,7 @@ image — s6's "legacy service" wrapping was found to not reliably pass the
 container's environment (including `SUPERVISOR_TOKEN`) through to a plain
 Dockerfile `CMD`, which silently broke every write.
 
-## Notes / current limitations (v0.3)
+## Notes / current limitations (v0.4)
 
 - Windows are matched by local wall-clock time; if the free-power period or
   PV-rate period shifts daily (e.g. published by your retailer), you'll
