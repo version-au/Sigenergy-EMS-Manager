@@ -18,8 +18,8 @@ function updateRampVisibility(node) {
   const isCharge = CHARGE_MODES.has(mode);
   const dischargeLabel = node.querySelector("label.ramp-discharge");
   const chargeLabel = node.querySelector("label.ramp-charge");
-  if (dischargeLabel) dischargeLabel.style.display = isDischarge ? "" : "none";
-  if (chargeLabel) chargeLabel.style.display = isCharge ? "" : "none";
+  if (dischargeLabel) dischargeLabel.style.display = isDischarge ? "flex" : "none";
+  if (chargeLabel) chargeLabel.style.display = isCharge ? "flex" : "none";
 }
 
 let entityDatalistBuilt = false;
