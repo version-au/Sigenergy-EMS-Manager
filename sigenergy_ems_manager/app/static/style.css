@@ -153,16 +153,9 @@ button#add-window {
   flex: 1;
 }
 
-.ramp-fields {
+.ramp-fields label.ramp-discharge,
+.ramp-fields label.ramp-charge {
   display: none;
-}
-
-.ramp-fields.show {
-  display: flex;
-}
-
-.ramp-discharge .enabled-label,
-.ramp-charge .enabled-label {
   color: var(--accent);
 }
 

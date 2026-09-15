@@ -96,15 +96,11 @@
       <div class="window-row">
         <label>Import limit (kW) <input type="number" step="0.1" class="w-import" /></label>
         <label>Export limit (kW) <input type="number" step="0.1" class="w-export" /></label>
-      </div>
-      <div class="window-row ramp-fields ramp-discharge">
-        <label class="enabled-label"><input type="checkbox" class="w-discharge-ramp" /> Smoothly ramp export limit down to reach the SoC target by the end of this schedule (instead of exporting flat-out then stopping)</label>
-      </div>
-      <div class="window-row ramp-fields ramp-charge">
-        <label class="enabled-label"><input type="checkbox" class="w-charge-ramp" /> Smoothly ramp import limit down as it approaches a target SoC by the end of this schedule</label>
-      </div>
-      <div class="window-row ramp-fields ramp-charge">
         <label>Charge target SoC (%) <input type="number" class="w-charge-target-soc" /></label>
+      </div>
+      <div class="window-row ramp-fields">
+        <label class="enabled-label ramp-discharge"><input type="checkbox" class="w-discharge-ramp" /> Ramp export limit</label>
+        <label class="enabled-label ramp-charge"><input type="checkbox" class="w-charge-ramp" /> Ramp import limit</label>
       </div>
       <div class="window-row notify-row">
         <label class="enabled-label"><input type="checkbox" class="w-notify-enabled" /> Notify when this schedule becomes active</label>
