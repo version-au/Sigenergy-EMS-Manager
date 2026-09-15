@@ -163,9 +163,22 @@ class Scheduler:
             except (TypeError, ValueError):
                 soc_value = None
 
+        discharge_ramp_active = bool(
+            mode_window
+            and merged.get("ems_mode") in DISCHARGE_MODES
+            and mode_window.get("discharge_ramp_enabled")
+        )
+
         # SoC-based discharge cutoff: if configured and battery has reached
         # the floor, force discharge power to 0 regardless of the window.
-        if merged.get("soc_stop_percent") is not None and soc_value is not None:
+        # Skipped when the discharge ramp is active for this window - the
+        # ramp handles its own cutoff (zeroing the export limit only,
+        # leaving the configured discharge power untouched).
+        if (
+            merged.get("soc_stop_percent") is not None
+            and soc_value is not None
+            and not discharge_ramp_active
+        ):
             if soc_value <= merged["soc_stop_percent"]:
                 merged["discharge_power_kw"] = 0
                 status["actions"].append(

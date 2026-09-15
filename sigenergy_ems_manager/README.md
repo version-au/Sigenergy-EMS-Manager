@@ -103,8 +103,12 @@ exporting/importing flat-out and then abruptly stopping.
   Without it, ramping is silently skipped and the schedule just uses its
   flat configured values as before.
 - If SoC is already past the target when a ramp-enabled window becomes
-  active, the relevant power/limit is held at 0 rather than ramping
-  "backwards".
+  active, the relevant **limit** (export or import) is held at 0 rather
+  than ramping "backwards" — the configured discharge/charge power is
+  never touched by this, on the same schedule or any other. This also
+  supersedes the older plain "Stop discharge at SoC (%)" cutoff, which
+  used to zero the discharge power directly: with discharge ramp enabled,
+  only the export limit is zeroed at cutoff instead.
 
 ## Reordering schedules
 
