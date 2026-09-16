@@ -86,35 +86,37 @@ much power is needed to land exactly on your SoC target right as the
 schedule ends, and lowers the limit smoothly as that happens — rather than
 exporting/importing flat-out and then abruptly stopping.
 
-- **Discharge ramp** — shows up once a schedule's EMS mode is set to
+- **Discharge ramp** — only shown once a schedule's EMS mode is set to
   either "Command Discharging" option. Enable "Ramp export limit" and it
   uses that schedule's existing "Stop discharge at SoC (%)" as the target.
-  Only the **export limit** is recalculated each poll, as `(current SoC −
+  Each poll it computes a target total discharge rate as `(current SoC −
   target SoC) ÷ 100 × battery capacity ÷ hours remaining in the window`,
-  capped at that schedule's configured discharge power (used as a ceiling
-  only — the discharge power setting itself is left as configured, not
-  overwritten).
-- **Charge ramp** — shows up once a schedule's EMS mode is set to either
-  "Command Charging" option. Enable "Ramp import limit" and set a
-  **Charge target SoC (%)** — the ceiling to charge up to. Same math in
-  reverse, adjusting only the **import limit** and capped at that
-  schedule's configured charge power (again just a ceiling, not modified).
+  capped at that schedule's configured discharge power - then keeps the
+  result within your **Min export limit** / **Max export limit** range
+  (also only shown for discharge modes). The discharge power setting
+  itself is never touched by this, only the export limit.
+- **Charge ramp** — only shown once a schedule's EMS mode is set to
+  either "Command Charging" option. Enable "Ramp import limit" and set a
+  **Charge target SoC (%)** (also only shown for charge modes) — the
+  ceiling to charge up to. Same math in reverse, adjusting only the
+  **import limit** and capped at that schedule's configured charge power.
 - Both require **Battery capacity (kWh)** to be set in the new **System**
   card, since that's what converts a SoC percentage into an energy amount.
   Without it, ramping is silently skipped and the schedule just uses its
-  flat configured values as before.
+  flat Max export limit / import limit as configured, unchanged.
 - **Consumption-aware export ramp** — if you map a **Home consumption
   power** sensor, the discharge ramp becomes smarter about what it
   actually asks the grid for. The battery's total output covers your
   house load first, and only the surplus is exported — so the ramp
   computes a target *total* discharge rate from the SoC/time math (capped
-  at your discharge power ceiling, same as before), then subtracts current
-  consumption from that to get the export limit. This also means export +
-  consumption can never exceed your discharge power ceiling, since the
-  cap is applied before the subtraction — the battery is never asked to
-  put out more than it's configured for. Leave this sensor unmapped and
-  the ramp behaves exactly as before (export limit = full target, no
-  consumption offset).
+  at your discharge power ceiling), subtracts current consumption from
+  that, and only then clamps the result to your Min/Max export limit
+  range. A final safety check re-applies the discharge power ceiling
+  after that range — so even if your Min export limit is set high,
+  (export limit + consumption) can never be pushed past what your
+  discharge power setting allows. Leave the sensor unmapped and
+  consumption simply isn't subtracted (export limit = target, still kept
+  within your Min/Max range).
 - If SoC is already past the target when a ramp-enabled window becomes
   active, the relevant **limit** (export or import) is held at 0 rather
   than ramping "backwards" — the configured discharge/charge power is
@@ -184,7 +186,7 @@ image — s6's "legacy service" wrapping was found to not reliably pass the
 container's environment (including `SUPERVISOR_TOKEN`) through to a plain
 Dockerfile `CMD`, which silently broke every write.
 
-## Notes / current limitations (v0.4)
+## Notes / current limitations (v0.5)
 
 - Windows are matched by local wall-clock time; if the free-power period or
   PV-rate period shifts daily (e.g. published by your retailer), you'll
@@ -198,6 +200,33 @@ Dockerfile `CMD`, which silently broke every write.
   still active when the add-on comes back up.
 - No historical logging yet beyond the last poll's status, shown in the
   Status panel.
+
+## Fixed in v0.5.1: window id could be saved as the literal text "undefined"
+
+A brand-new schedule (added via "+ Add schedule") had no id yet, and the
+frontend accidentally stringified that missing value instead of leaving it
+unset, so it got saved as the literal text `"undefined"`. This is now
+fixed at the source, and `storage.py` also auto-repairs any window still
+carrying that bad id (regenerating a proper one from its name) the next
+time the config loads - no manual fix needed if you hit this on an
+earlier version.
+
+## Changed in v0.6.0: Export limit is now a Min/Max range
+
+The old single **Export limit (kW)** field is gone, replaced by **Min
+export limit (kW)** and **Max export limit (kW)** - both only shown once
+a discharge EMS mode is selected. Existing schedules are migrated
+automatically: any old `export_limit_kw` value carries over as the new
+Max export limit the next time the config loads, so nothing is lost.
+
+- Without ramping enabled, the Max export limit is just applied flat, the
+  same as the old single field used to be.
+- With ramping enabled, the computed export value is kept within that
+  Min/Max range - see "Smooth discharge/charge ramping" above for the
+  full formula and how it interacts with consumption and your discharge
+  power ceiling.
+- **Charge target SoC (%)** is now also only shown once a charge EMS mode
+  is selected, instead of always being visible.
 
 ## Development
 

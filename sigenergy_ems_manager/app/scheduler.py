@@ -139,7 +139,8 @@ class Scheduler:
                 "discharge_power_kw",
                 "soc_stop_percent",
                 "import_limit_kw",
-                "export_limit_kw",
+                "min_export_limit_kw",
+                "max_export_limit_kw",
             ):
                 if w.get(key) is not None:
                     merged[key] = w[key]
@@ -197,22 +198,33 @@ class Scheduler:
                     f"SoC {soc_value}% <= cutoff {merged['soc_stop_percent']}% - discharge held at 0kW"
                 )
 
-        if mode_window and soc_value is not None and capacity_kwh:
+        if mode_window:
             mode = merged.get("ems_mode")
-            if (
-                mode in DISCHARGE_MODES
-                and mode_window.get("discharge_ramp_enabled")
-                and merged.get("soc_stop_percent") is not None
-            ):
-                self._apply_discharge_ramp(
-                    mode_window, merged, soc_value, capacity_kwh, now, status, consumed_kw
-                )
-            elif (
-                mode in CHARGE_MODES
-                and mode_window.get("charge_ramp_enabled")
-                and mode_window.get("charge_target_percent") is not None
-            ):
-                self._apply_charge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
+            if mode in DISCHARGE_MODES:
+                if (
+                    discharge_ramp_active
+                    and soc_value is not None
+                    and capacity_kwh
+                    and merged.get("soc_stop_percent") is not None
+                ):
+                    self._apply_discharge_ramp(
+                        mode_window, merged, soc_value, capacity_kwh, now, status, consumed_kw
+                    )
+                else:
+                    # Not actively ramping (ramp disabled, or missing SoC/
+                    # capacity to compute it) - just apply the flat max
+                    # export limit as configured, if any.
+                    max_export = mode_window.get("max_export_limit_kw")
+                    if max_export is not None:
+                        merged["export_limit_kw"] = max_export
+            elif mode in CHARGE_MODES:
+                if (
+                    mode_window.get("charge_ramp_enabled")
+                    and soc_value is not None
+                    and capacity_kwh
+                    and mode_window.get("charge_target_percent") is not None
+                ):
+                    self._apply_charge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
 
         await self._apply_ems_mode(entities, merged, status)
         await self._apply_number(
@@ -264,17 +276,21 @@ class Scheduler:
     ) -> None:
         """Instead of exporting at a flat (often high) power for the whole
         window then hard-stopping at the SoC floor, pace the export limit
-        so it lands on the SoC target right as the window ends. Only the
-        export limit is touched - the schedule's discharge power setting
-        (if any) is left as configured.
+        so it lands on the SoC target right as the window ends, kept
+        within the schedule's Min/Max export limit range. Only the export
+        limit is touched - the schedule's discharge power setting (if any)
+        is left as configured.
 
         If a home consumption reading is available, it's subtracted from
         the target total discharge rate to get the export limit, since the
         battery's total output covers house load first and only the
         surplus is actually exported. The target total discharge rate is
         capped at the schedule's discharge power ceiling *before* that
-        subtraction, so (export limit + consumption) never asks the
-        battery for more than it's configured to put out.
+        subtraction, and that same ceiling is re-applied as a final safety
+        check after the min/max range and consumption offset - so
+        (export limit + consumption) can never exceed the configured
+        discharge power ceiling, even if the min export limit would
+        otherwise push it there.
         """
         soc_target = merged["soc_stop_percent"]
         if soc_value <= soc_target:
@@ -284,25 +300,33 @@ class Scheduler:
         remaining_hours = max((end_dt - now).total_seconds() / 3600, MIN_RAMP_HOURS)
         energy_kwh = (soc_value - soc_target) / 100 * capacity_kwh
         required_total_kw = energy_kwh / remaining_hours
-        ceiling = merged.get("discharge_power_kw")
-        if ceiling is not None:
-            required_total_kw = min(required_total_kw, ceiling)
+        discharge_ceiling = merged.get("discharge_power_kw")
+        if discharge_ceiling is not None:
+            required_total_kw = min(required_total_kw, discharge_ceiling)
         required_total_kw = max(required_total_kw, 0)
 
-        if consumed_kw is not None and consumed_kw > 0:
-            export_kw = max(required_total_kw - consumed_kw, 0)
-            merged["export_limit_kw"] = round(export_kw, 3)
-            status["actions"].append(
-                f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> "
-                f"target output {required_total_kw:.2f}kW - consumption {consumed_kw:.2f}kW "
-                f"-> export limit {export_kw:.2f}kW"
-            )
-        else:
-            merged["export_limit_kw"] = round(required_total_kw, 3)
-            status["actions"].append(
-                f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h "
-                f"-> export limit {required_total_kw:.2f}kW"
-            )
+        consumed = consumed_kw if consumed_kw is not None else 0.0
+        export_kw = max(required_total_kw - consumed, 0)
+
+        min_export = merged.get("min_export_limit_kw")
+        max_export = merged.get("max_export_limit_kw")
+        if min_export is not None:
+            export_kw = max(export_kw, min_export)
+        if max_export is not None:
+            export_kw = min(export_kw, max_export)
+
+        # Final safety net: re-apply the discharge ceiling after the min/max
+        # range, in case the min export limit would otherwise push the
+        # total (export + consumption) past what the battery can put out.
+        if discharge_ceiling is not None:
+            export_kw = min(export_kw, max(discharge_ceiling - consumed, 0))
+
+        merged["export_limit_kw"] = round(export_kw, 3)
+        status["actions"].append(
+            f"Discharge ramp: {soc_value:.1f}% -> {soc_target}% over {remaining_hours:.2f}h -> "
+            f"target output {required_total_kw:.2f}kW - consumption {consumed:.2f}kW "
+            f"-> export limit {export_kw:.2f}kW (range {min_export}-{max_export}kW)"
+        )
 
     def _apply_charge_ramp(
         self,

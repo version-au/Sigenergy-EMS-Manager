@@ -13,14 +13,18 @@ const ENTITY_FIELDS = [
 const DISCHARGE_MODES = new Set(["Command Discharging (PV First)", "Command Discharging (ESS First)"]);
 const CHARGE_MODES = new Set(["Command Charging (Grid First)", "Command Charging (PV First)"]);
 
-function updateRampVisibility(node) {
+function updateModeVisibility(node) {
   const mode = node.querySelector(".w-ems-mode").value;
   const isDischarge = DISCHARGE_MODES.has(mode);
   const isCharge = CHARGE_MODES.has(mode);
-  const dischargeLabel = node.querySelector("label.ramp-discharge");
-  const chargeLabel = node.querySelector("label.ramp-charge");
-  if (dischargeLabel) dischargeLabel.style.display = isDischarge ? "flex" : "none";
-  if (chargeLabel) chargeLabel.style.display = isCharge ? "flex" : "none";
+  const showFor = (el, show) => {
+    // labels need flex (matches the rest of the form's layout); the plain
+    // hint paragraph needs block - "" won't work here since it would just
+    // fall back to the stylesheet's own display:none default.
+    el.style.display = show ? (el.tagName === "LABEL" ? "flex" : "block") : "none";
+  };
+  node.querySelectorAll(".mode-discharge-only").forEach((el) => showFor(el, isDischarge));
+  node.querySelectorAll(".mode-charge-only").forEach((el) => showFor(el, isCharge));
 }
 
 let entityDatalistBuilt = false;
@@ -80,7 +84,11 @@ function collectEntities() {
 function renderWindow(win) {
   const tpl = document.getElementById("window-template");
   const node = tpl.content.firstElementChild.cloneNode(true);
-  node.dataset.id = win.id;
+  // Only set dataset.id when win.id actually exists - a brand-new window
+  // (from "+ Add schedule") has no id yet, and dataset always stringifies,
+  // so `node.dataset.id = win.id` with win.id === undefined would silently
+  // store the literal text "undefined" instead of leaving it unset.
+  if (win.id) node.dataset.id = win.id;
 
   node.querySelector(".w-name").value = win.name || "";
   node.querySelector(".w-enabled").checked = win.enabled !== false;
@@ -91,7 +99,8 @@ function renderWindow(win) {
   node.querySelector(".w-discharge").value = win.discharge_power_kw ?? "";
   node.querySelector(".w-soc-stop").value = win.soc_stop_percent ?? "";
   node.querySelector(".w-import").value = win.import_limit_kw ?? "";
-  node.querySelector(".w-export").value = win.export_limit_kw ?? "";
+  node.querySelector(".w-export-min").value = win.min_export_limit_kw ?? "";
+  node.querySelector(".w-export-max").value = win.max_export_limit_kw ?? "";
   node.querySelector(".w-discharge-ramp").checked = !!win.discharge_ramp_enabled;
   node.querySelector(".w-charge-ramp").checked = !!win.charge_ramp_enabled;
   node.querySelector(".w-charge-target-soc").value = win.charge_target_percent ?? "";
@@ -105,8 +114,8 @@ function renderWindow(win) {
     cb.checked = days.includes(cb.value);
   });
 
-  updateRampVisibility(node);
-  node.querySelector(".w-ems-mode").addEventListener("change", () => updateRampVisibility(node));
+  updateModeVisibility(node);
+  node.querySelector(".w-ems-mode").addEventListener("change", () => updateModeVisibility(node));
 
   node.querySelector(".remove-window").addEventListener("click", () => {
     node.remove();
@@ -166,7 +175,8 @@ function collectWindows() {
       discharge_power_kw: num(".w-discharge"),
       soc_stop_percent: num(".w-soc-stop"),
       import_limit_kw: num(".w-import"),
-      export_limit_kw: num(".w-export"),
+      min_export_limit_kw: num(".w-export-min"),
+      max_export_limit_kw: num(".w-export-max"),
       discharge_ramp_enabled: node.querySelector(".w-discharge-ramp").checked,
       charge_ramp_enabled: node.querySelector(".w-charge-ramp").checked,
       charge_target_percent: num(".w-charge-target-soc"),

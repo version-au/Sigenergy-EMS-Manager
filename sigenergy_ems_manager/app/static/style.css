@@ -153,10 +153,22 @@ button#add-window {
   flex: 1;
 }
 
-.ramp-fields label.ramp-discharge,
-.ramp-fields label.ramp-charge {
+/* Hidden by default; JS shows the relevant set once an EMS mode is picked.
+   Covers the min/max export fields, charge target SoC, and the ramp
+   checkboxes - anything that only makes sense for one direction. */
+.mode-discharge-only,
+.mode-charge-only {
   display: none;
+}
+
+.ramp-fields label.mode-discharge-only,
+.ramp-fields label.mode-charge-only {
   color: var(--accent);
+}
+
+p.hint.mode-discharge-only,
+p.hint.mode-charge-only {
+  margin-top: -4px;
 }
 
 .window-header .w-name {
