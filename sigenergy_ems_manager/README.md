@@ -214,14 +214,18 @@ earlier version.
 ## Changed in v0.6.0: Export limit is now a Min/Max range
 
 The old single **Export limit (kW)** field is gone, replaced by **Min
-export limit (kW)** and **Max export limit (kW)** - both only shown once
-a discharge EMS mode is selected. Existing schedules are migrated
-automatically: any old `export_limit_kw` value carries over as the new
-Max export limit the next time the config loads, so nothing is lost.
+export limit (kW)** and **Max export limit (kW)**. Existing schedules are
+migrated automatically: any old `export_limit_kw` value carries over as
+the new Max export limit the next time the config loads, so nothing is
+lost.
 
-- Without ramping enabled, the Max export limit is just applied flat, the
-  same as the old single field used to be.
-- With ramping enabled, the computed export value is kept within that
+- **Max export limit** is shown on every schedule, regardless of EMS
+  mode - it's the field the flat (non-ramping) export limit uses, and it
+  only actually takes effect while a discharge mode is selected (same as
+  the old single field's behaviour).
+- **Min export limit** is only shown once a discharge EMS mode is
+  selected, since it's exclusively a ramp-range setting.
+- With ramping enabled, the computed export value is kept within the
   Min/Max range - see "Smooth discharge/charge ramping" above for the
   full formula and how it interacts with consumption and your discharge
   power ceiling.
