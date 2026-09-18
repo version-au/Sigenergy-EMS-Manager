@@ -141,6 +141,7 @@ class Scheduler:
                 "import_limit_kw",
                 "min_export_limit_kw",
                 "max_export_limit_kw",
+                "flat_export_limit_kw",
             ):
                 if w.get(key) is not None:
                     merged[key] = w[key]
@@ -198,33 +199,43 @@ class Scheduler:
                     f"SoC {soc_value}% <= cutoff {merged['soc_stop_percent']}% - discharge held at 0kW"
                 )
 
-        if mode_window:
-            mode = merged.get("ems_mode")
-            if mode in DISCHARGE_MODES:
-                if (
-                    discharge_ramp_active
-                    and soc_value is not None
-                    and capacity_kwh
-                    and merged.get("soc_stop_percent") is not None
-                ):
-                    self._apply_discharge_ramp(
-                        mode_window, merged, soc_value, capacity_kwh, now, status, consumed_kw
-                    )
-                else:
-                    # Not actively ramping (ramp disabled, or missing SoC/
-                    # capacity to compute it) - just apply the flat max
-                    # export limit as configured, if any.
-                    max_export = mode_window.get("max_export_limit_kw")
-                    if max_export is not None:
-                        merged["export_limit_kw"] = max_export
-            elif mode in CHARGE_MODES:
-                if (
-                    mode_window.get("charge_ramp_enabled")
-                    and soc_value is not None
-                    and capacity_kwh
-                    and mode_window.get("charge_target_percent") is not None
-                ):
-                    self._apply_charge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
+        mode = merged.get("ems_mode")
+
+        if mode_window and mode in DISCHARGE_MODES:
+            if (
+                discharge_ramp_active
+                and soc_value is not None
+                and capacity_kwh
+                and merged.get("soc_stop_percent") is not None
+            ):
+                self._apply_discharge_ramp(
+                    mode_window, merged, soc_value, capacity_kwh, now, status, consumed_kw
+                )
+            else:
+                # Not actively ramping (ramp disabled, or missing SoC/
+                # capacity to compute it) - just apply the flat max
+                # export limit as configured, if any.
+                max_export = mode_window.get("max_export_limit_kw")
+                if max_export is not None:
+                    merged["export_limit_kw"] = max_export
+        else:
+            # Any non-discharge situation (charging, self consumption,
+            # standby, PCS remote, V2G, or no EMS mode managed at all) uses
+            # the plain flat Export Limit field instead of the discharge
+            # ramp's min/max range - those two concepts are mutually
+            # exclusive in the UI, matching here.
+            flat_export = merged.get("flat_export_limit_kw")
+            if flat_export is not None:
+                merged["export_limit_kw"] = flat_export
+
+        if mode_window and mode in CHARGE_MODES:
+            if (
+                mode_window.get("charge_ramp_enabled")
+                and soc_value is not None
+                and capacity_kwh
+                and mode_window.get("charge_target_percent") is not None
+            ):
+                self._apply_charge_ramp(mode_window, merged, soc_value, capacity_kwh, now, status)
 
         await self._apply_ems_mode(entities, merged, status)
         await self._apply_number(

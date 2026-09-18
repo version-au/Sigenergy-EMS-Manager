@@ -154,10 +154,12 @@ button#add-window {
 }
 
 /* Hidden by default; JS shows the relevant set once an EMS mode is picked.
-   Covers the min/max export fields, charge target SoC, and the ramp
-   checkboxes - anything that only makes sense for one direction. */
+   Covers the min/max export fields, the flat export limit field, charge
+   target SoC, and the ramp checkboxes - anything that only makes sense
+   for one direction. */
 .mode-discharge-only,
-.mode-charge-only {
+.mode-charge-only,
+.mode-other-only {
   display: none;
 }
 

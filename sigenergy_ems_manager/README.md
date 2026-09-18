@@ -211,20 +211,31 @@ carrying that bad id (regenerating a proper one from its name) the next
 time the config loads - no manual fix needed if you hit this on an
 earlier version.
 
+## Changed in v0.6.2: separate Export limit field for non-discharge modes
+
+**Min export limit** and **Max export limit** are both now shown only
+while a discharge EMS mode is selected - they're exclusively a
+discharge-ramp concept (the range the ramp keeps its computed value
+within, or the flat value Max export limit applies when ramping is off).
+
+For every other mode - charging, Maximum Self Consumption, Standby, PCS
+Remote Control, V2G, or no EMS mode managed at all - a separate flat
+**Export limit (kW)** field is shown instead, and this is what actually
+gets written to your export limit entity while one of those modes is
+active. Previously the export limit entity was simply left untouched
+outside of discharge mode; now you can cap it (or leave it blank to not
+manage it) for any other mode too. This can be combined with charge
+ramping on the same schedule - they don't conflict.
+
 ## Changed in v0.6.0: Export limit is now a Min/Max range
 
 The old single **Export limit (kW)** field is gone, replaced by **Min
-export limit (kW)** and **Max export limit (kW)**. Existing schedules are
-migrated automatically: any old `export_limit_kw` value carries over as
-the new Max export limit the next time the config loads, so nothing is
-lost.
+export limit (kW)** and **Max export limit (kW)** for discharge
+schedules (see v0.6.2 above for the non-discharge equivalent). Existing
+schedules are migrated automatically: any old `export_limit_kw` value
+carries over as the new Max export limit the next time the config loads,
+so nothing is lost.
 
-- **Max export limit** is shown on every schedule, regardless of EMS
-  mode - it's the field the flat (non-ramping) export limit uses, and it
-  only actually takes effect while a discharge mode is selected (same as
-  the old single field's behaviour).
-- **Min export limit** is only shown once a discharge EMS mode is
-  selected, since it's exclusively a ramp-range setting.
 - With ramping enabled, the computed export value is kept within the
   Min/Max range - see "Smooth discharge/charge ramping" above for the
   full formula and how it interacts with consumption and your discharge

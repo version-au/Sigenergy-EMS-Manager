@@ -25,6 +25,9 @@ function updateModeVisibility(node) {
   };
   node.querySelectorAll(".mode-discharge-only").forEach((el) => showFor(el, isDischarge));
   node.querySelectorAll(".mode-charge-only").forEach((el) => showFor(el, isCharge));
+  // "Other" covers every mode except discharging - charging, self
+  // consumption, standby, PCS remote, V2G, and no mode selected at all.
+  node.querySelectorAll(".mode-other-only").forEach((el) => showFor(el, !isDischarge));
 }
 
 let entityDatalistBuilt = false;
@@ -101,6 +104,7 @@ function renderWindow(win) {
   node.querySelector(".w-import").value = win.import_limit_kw ?? "";
   node.querySelector(".w-export-min").value = win.min_export_limit_kw ?? "";
   node.querySelector(".w-export-max").value = win.max_export_limit_kw ?? "";
+  node.querySelector(".w-export-flat").value = win.flat_export_limit_kw ?? "";
   node.querySelector(".w-discharge-ramp").checked = !!win.discharge_ramp_enabled;
   node.querySelector(".w-charge-ramp").checked = !!win.charge_ramp_enabled;
   node.querySelector(".w-charge-target-soc").value = win.charge_target_percent ?? "";
@@ -177,6 +181,7 @@ function collectWindows() {
       import_limit_kw: num(".w-import"),
       min_export_limit_kw: num(".w-export-min"),
       max_export_limit_kw: num(".w-export-max"),
+      flat_export_limit_kw: num(".w-export-flat"),
       discharge_ramp_enabled: node.querySelector(".w-discharge-ramp").checked,
       charge_ramp_enabled: node.querySelector(".w-charge-ramp").checked,
       charge_target_percent: num(".w-charge-target-soc"),

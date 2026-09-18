@@ -93,6 +93,7 @@ class Window(BaseModel):
     import_limit_kw: float | None = None
     min_export_limit_kw: float | None = None
     max_export_limit_kw: float | None = None
+    flat_export_limit_kw: float | None = None
     discharge_ramp_enabled: bool = False
     charge_ramp_enabled: bool = False
     charge_target_percent: float | None = None

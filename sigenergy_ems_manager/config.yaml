@@ -1,5 +1,5 @@
 name: "Sigenergy EMS Manager"
-version: "0.6.1"
+version: "0.6.2"
 slug: "sigenergy_ems_manager"
 description: "Schedule-driven EMS work mode, battery discharge, and grid import/export limit management for Sigenergy systems via the Local Modbus integration"
 url: "https://github.com/version-au/Sigenergy-EMS-Manager"
