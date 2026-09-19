@@ -48,6 +48,39 @@ main {
   margin: 0 auto;
 }
 
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  max-width: 900px;
+  margin: 0 auto 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 10px 16px;
+  margin: 0;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: grid;
+  gap: 16px;
+}
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -116,11 +149,75 @@ button#add-window {
   margin-bottom: 12px;
 }
 
-.window-header {
+.window-summary {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.window-summary .w-name {
+  flex: 1;
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.window-body {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.window.expanded .window-body {
+  display: block;
+}
+
+.active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.window.is-active .active-dot {
+  background: var(--good);
+}
+
+.summary-enabled {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: #0f1115;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.expand-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.expand-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.window.expanded .expand-toggle {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .reorder-btns {
@@ -171,11 +268,6 @@ button#add-window {
 p.hint.mode-discharge-only,
 p.hint.mode-charge-only {
   margin-top: -4px;
-}
-
-.window-header .w-name {
-  flex: 1;
-  font-weight: 600;
 }
 
 .enabled-label {

@@ -12,108 +12,126 @@
     <div id="status-pill" class="pill">loading…</div>
   </header>
 
+  <nav class="tab-bar" id="tab-bar">
+    <button class="tab-btn" data-tab="setup">Setup</button>
+    <button class="tab-btn" data-tab="schedules">Schedules</button>
+    <button class="tab-btn" data-tab="status">Status</button>
+  </nav>
+
   <main>
-    <section class="card" id="entities-card">
-      <h2>Entities</h2>
-      <p class="hint">Map this app to your Sigenergy Local Modbus entities. Start typing to search your Home Assistant entities.</p>
-      <div class="entity-grid" id="entity-grid"></div>
-      <button id="save-entities">Save entities</button>
-      <span class="save-msg" id="entities-save-msg"></span>
-    </section>
+    <div class="tab-panel" id="tab-setup">
+      <section class="card" id="entities-card">
+        <h2>Entities</h2>
+        <p class="hint">Map this app to your Sigenergy Local Modbus entities. Start typing to search your Home Assistant entities.</p>
+        <div class="entity-grid" id="entity-grid"></div>
+        <button id="save-entities">Save entities</button>
+        <span class="save-msg" id="entities-save-msg"></span>
+      </section>
 
-    <section class="card" id="settings-card">
-      <h2>System</h2>
-      <p class="hint">Used to pace the discharge/charge ramp settings on schedules below — how much energy a 1% SoC change represents.</p>
-      <label>Battery capacity (kWh) <input type="number" step="0.1" id="battery-capacity" /></label>
-      <br />
-      <button id="save-settings">Save settings</button>
-      <span class="save-msg" id="settings-save-msg"></span>
-    </section>
+      <section class="card" id="settings-card">
+        <h2>System</h2>
+        <p class="hint">Used to pace the discharge/charge ramp settings on schedules below — how much energy a 1% SoC change represents.</p>
+        <label>Battery capacity (kWh) <input type="number" step="0.1" id="battery-capacity" /></label>
+        <br />
+        <button id="save-settings">Save settings</button>
+        <span class="save-msg" id="settings-save-msg"></span>
+      </section>
+    </div>
 
-    <section class="card" id="windows-card">
-      <h2>Schedules</h2>
-      <p class="hint">Each schedule window is applied while active, and re-applied automatically if something else changes the values during that window. Power fields are entered in kW and converted to your entities' native unit (set via the add-on's "power_entities_unit" option — default kW). Use the arrows to reorder — when two active schedules overlap, whichever is lower in the list wins on any field they both set.</p>
-      <div id="windows-list"></div>
-      <button id="add-window">+ Add schedule</button>
-      <button id="save-windows">Save schedules</button>
-      <span class="save-msg" id="windows-save-msg"></span>
-    </section>
+    <div class="tab-panel" id="tab-schedules">
+      <section class="card" id="windows-card">
+        <h2>Schedules</h2>
+        <p class="hint">Each schedule window is applied while active, and re-applied automatically if something else changes the values during that window. Power fields are entered in kW and converted to your entities' native unit (set via the add-on's "power_entities_unit" option — default kW). Use the arrows to reorder — when two active schedules overlap, whichever is lower in the list wins on any field they both set. Click a schedule's row to expand it.</p>
+        <div id="windows-list"></div>
+        <button id="add-window">+ Add schedule</button>
+        <button id="save-windows">Save schedules</button>
+        <span class="save-msg" id="windows-save-msg"></span>
+      </section>
+    </div>
 
-    <section class="card" id="status-card">
-      <h2>Status</h2>
-      <div id="status-body">loading…</div>
-    </section>
+    <div class="tab-panel" id="tab-status">
+      <section class="card" id="status-card">
+        <h2>Status</h2>
+        <div id="status-body">loading…</div>
+      </section>
+    </div>
   </main>
 
   <template id="window-template">
     <div class="window" data-window>
-      <div class="window-header">
+      <div class="window-summary">
         <div class="reorder-btns">
           <button class="move-up" title="Move up">&#9650;</button>
           <button class="move-down" title="Move down">&#9660;</button>
         </div>
+        <span class="active-dot" title="Currently active"></span>
+        <label class="enabled-label summary-enabled"><input type="checkbox" class="w-enabled" checked /></label>
         <input type="text" class="w-name" placeholder="Schedule name" />
-        <label class="enabled-label"><input type="checkbox" class="w-enabled" checked /> Enabled</label>
+        <span class="w-time-badge badge"></span>
+        <span class="w-mode-badge badge"></span>
+        <button class="expand-toggle" title="Expand/collapse">&#9660;</button>
         <button class="remove-window">Remove</button>
       </div>
-      <div class="window-row">
-        <label>Days
-          <div class="days" data-days>
-            <label><input type="checkbox" value="mon" checked>Mon</label>
-            <label><input type="checkbox" value="tue" checked>Tue</label>
-            <label><input type="checkbox" value="wed" checked>Wed</label>
-            <label><input type="checkbox" value="thu" checked>Thu</label>
-            <label><input type="checkbox" value="fri" checked>Fri</label>
-            <label><input type="checkbox" value="sat" checked>Sat</label>
-            <label><input type="checkbox" value="sun" checked>Sun</label>
-          </div>
-        </label>
-      </div>
-      <div class="window-row">
-        <label>Start <input type="time" class="w-start" /></label>
-        <label>End <input type="time" class="w-end" /></label>
-      </div>
-      <div class="window-row">
-        <label>EMS mode
-          <select class="w-ems-mode">
-            <option value="">-- don't manage --</option>
-            <option value="PCS Remote Control">PCS Remote Control</option>
-            <option value="Standby">Standby</option>
-            <option value="Maximum Self Consumption">Maximum Self Consumption</option>
-            <option value="Command Charging (Grid First)">Command Charging (Grid First)</option>
-            <option value="Command Charging (PV First)">Command Charging (PV First)</option>
-            <option value="Command Discharging (PV First)">Command Discharging (PV First)</option>
-            <option value="Command Discharging (ESS First)">Command Discharging (ESS First)</option>
-            <option value="V2G">V2G</option>
-          </select>
-        </label>
-      </div>
-      <div class="window-row">
-        <label>Charge power (kW) <input type="number" step="0.1" class="w-charge" /></label>
-        <label>Discharge power (kW) <input type="number" step="0.1" class="w-discharge" /></label>
-        <label>Stop discharge at SoC (%) <input type="number" class="w-soc-stop" /></label>
-      </div>
-      <div class="window-row">
-        <label>Import limit (kW) <input type="number" step="0.1" class="w-import" /></label>
-        <label class="mode-charge-only">Charge target SoC (%) <input type="number" class="w-charge-target-soc" /></label>
-        <label class="mode-discharge-only">Min export limit (kW) <input type="number" step="0.1" class="w-export-min" /></label>
-        <label class="mode-discharge-only">Max export limit (kW) <input type="number" step="0.1" class="w-export-max" /></label>
-        <label class="mode-other-only">Export limit (kW) <input type="number" step="0.1" class="w-export-flat" /></label>
-      </div>
-      <div class="window-row ramp-fields">
-        <label class="enabled-label mode-discharge-only"><input type="checkbox" class="w-discharge-ramp" /> Ramp export limit</label>
-        <label class="enabled-label mode-charge-only"><input type="checkbox" class="w-charge-ramp" /> Ramp import limit</label>
-      </div>
-      <p class="hint ramp-fields mode-discharge-only">When ramping, the export limit is calculated dynamically each poll and kept within your Min/Max export limit range above.</p>
-      <div class="window-row notify-row">
-        <label class="enabled-label"><input type="checkbox" class="w-notify-enabled" /> Notify when this schedule becomes active</label>
-      </div>
-      <div class="window-row notify-fields">
-        <label>Notify service <input type="text" class="w-notify-service" placeholder="e.g. persistent_notification.create or notify.mobile_app_myphone" /></label>
-        <label>Title (optional) <input type="text" class="w-notify-title" placeholder="Sigenergy EMS" /></label>
-      </div>
-      <div class="window-row notify-fields">
-        <label class="full-width">Message (optional) <input type="text" class="w-notify-message" placeholder="Defaults to '<schedule name> schedule is now active'" /></label>
+      <div class="window-body">
+        <div class="window-row">
+          <label>Days
+            <div class="days" data-days>
+              <label><input type="checkbox" value="mon" checked>Mon</label>
+              <label><input type="checkbox" value="tue" checked>Tue</label>
+              <label><input type="checkbox" value="wed" checked>Wed</label>
+              <label><input type="checkbox" value="thu" checked>Thu</label>
+              <label><input type="checkbox" value="fri" checked>Fri</label>
+              <label><input type="checkbox" value="sat" checked>Sat</label>
+              <label><input type="checkbox" value="sun" checked>Sun</label>
+            </div>
+          </label>
+        </div>
+        <div class="window-row">
+          <label>Start <input type="time" class="w-start" /></label>
+          <label>End <input type="time" class="w-end" /></label>
+        </div>
+        <div class="window-row">
+          <label>EMS mode
+            <select class="w-ems-mode">
+              <option value="">-- don't manage --</option>
+              <option value="PCS Remote Control">PCS Remote Control</option>
+              <option value="Standby">Standby</option>
+              <option value="Maximum Self Consumption">Maximum Self Consumption</option>
+              <option value="Command Charging (Grid First)">Command Charging (Grid First)</option>
+              <option value="Command Charging (PV First)">Command Charging (PV First)</option>
+              <option value="Command Discharging (PV First)">Command Discharging (PV First)</option>
+              <option value="Command Discharging (ESS First)">Command Discharging (ESS First)</option>
+              <option value="V2G">V2G</option>
+            </select>
+          </label>
+        </div>
+        <div class="window-row">
+          <label>Charge power (kW) <input type="number" step="0.1" class="w-charge" /></label>
+          <label>Discharge power (kW) <input type="number" step="0.1" class="w-discharge" /></label>
+          <label>Stop discharge at SoC (%) <input type="number" class="w-soc-stop" /></label>
+        </div>
+        <div class="window-row">
+          <label>Import limit (kW) <input type="number" step="0.1" class="w-import" /></label>
+          <label class="mode-charge-only">Charge target SoC (%) <input type="number" class="w-charge-target-soc" /></label>
+          <label class="mode-discharge-only">Min export limit (kW) <input type="number" step="0.1" class="w-export-min" /></label>
+          <label class="mode-discharge-only">Max export limit (kW) <input type="number" step="0.1" class="w-export-max" /></label>
+          <label class="mode-other-only">Export limit (kW) <input type="number" step="0.1" class="w-export-flat" /></label>
+        </div>
+        <div class="window-row ramp-fields">
+          <label class="enabled-label mode-discharge-only"><input type="checkbox" class="w-discharge-ramp" /> Ramp export limit</label>
+          <label class="enabled-label mode-charge-only"><input type="checkbox" class="w-charge-ramp" /> Ramp import limit</label>
+        </div>
+        <p class="hint ramp-fields mode-discharge-only">When ramping, the export limit is calculated dynamically each poll and kept within your Min/Max export limit range above.</p>
+        <div class="window-row notify-row">
+          <label class="enabled-label"><input type="checkbox" class="w-notify-enabled" /> Notify when this schedule becomes active</label>
+        </div>
+        <div class="window-row notify-fields">
+          <label>Notify service <input type="text" class="w-notify-service" placeholder="e.g. persistent_notification.create or notify.mobile_app_myphone" /></label>
+          <label>Title (optional) <input type="text" class="w-notify-title" placeholder="Sigenergy EMS" /></label>
+        </div>
+        <div class="window-row notify-fields">
+          <label class="full-width">Message (optional) <input type="text" class="w-notify-message" placeholder="Defaults to '<schedule name> schedule is now active'" /></label>
+        </div>
       </div>
     </div>
   </template>

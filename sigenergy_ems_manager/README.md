@@ -211,6 +211,21 @@ carrying that bad id (regenerating a proper one from its name) the next
 time the config loads - no manual fix needed if you hit this on an
 earlier version.
 
+## Changed in v0.7.0: tabbed layout with collapsible schedule rows
+
+Purely a UI reorganization - no backend logic, field names, or API
+behaviour changed at all.
+
+- The page is now split into three tabs: **Setup** (Entities + System),
+  **Schedules**, and **Status** - instead of one long scroll.
+- Each schedule now collapses to a single summary row (enabled toggle,
+  active indicator dot, name, time range, EMS mode) and expands in place
+  when clicked, instead of always showing every field. New schedules
+  start expanded so there's something to fill in immediately.
+- The active indicator dot reflects the live poll status (same data the
+  Status tab and the header pill already showed), so you can see which
+  schedule is currently running without expanding anything.
+
 ## Changed in v0.6.2: separate Export limit field for non-discharge modes
 
 **Min export limit** and **Max export limit** are both now shown only

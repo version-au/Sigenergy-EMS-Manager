@@ -30,6 +30,14 @@ function updateModeVisibility(node) {
   node.querySelectorAll(".mode-other-only").forEach((el) => showFor(el, !isDischarge));
 }
 
+function updateSummaryBadges(node) {
+  const start = node.querySelector(".w-start").value;
+  const end = node.querySelector(".w-end").value;
+  node.querySelector(".w-time-badge").textContent = start && end ? `${start}–${end}` : "no time set";
+  const mode = node.querySelector(".w-ems-mode").value;
+  node.querySelector(".w-mode-badge").textContent = mode || "no mode set";
+}
+
 let entityDatalistBuilt = false;
 
 async function fetchJSON(url, options) {
@@ -119,7 +127,17 @@ function renderWindow(win) {
   });
 
   updateModeVisibility(node);
-  node.querySelector(".w-ems-mode").addEventListener("change", () => updateModeVisibility(node));
+  updateSummaryBadges(node);
+  node.querySelector(".w-ems-mode").addEventListener("change", () => {
+    updateModeVisibility(node);
+    updateSummaryBadges(node);
+  });
+  node.querySelector(".w-start").addEventListener("change", () => updateSummaryBadges(node));
+  node.querySelector(".w-end").addEventListener("change", () => updateSummaryBadges(node));
+
+  node.querySelector(".expand-toggle").addEventListener("click", () => {
+    node.classList.toggle("expanded");
+  });
 
   node.querySelector(".remove-window").addEventListener("click", () => {
     node.remove();
@@ -247,20 +265,39 @@ async function refreshStatus() {
       pill.textContent = "waiting for first run";
     }
     body.textContent = JSON.stringify(status, null, 2);
+
+    const activeIds = new Set(status.active_window_ids || []);
+    document.querySelectorAll("#windows-list [data-window]").forEach((node) => {
+      node.classList.toggle("is-active", activeIds.has(node.dataset.id));
+    });
   } catch (e) {
     document.getElementById("status-pill").textContent = "unreachable";
   }
+}
+
+function initTabs() {
+  const buttons = document.querySelectorAll(".tab-btn");
+  const panels = document.querySelectorAll(".tab-panel");
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      buttons.forEach((b) => b.classList.toggle("active", b === btn));
+      panels.forEach((p) => p.classList.toggle("active", p.id === `tab-${btn.dataset.tab}`));
+    });
+  });
+  // Default to the Schedules tab - it's the one you come back to most.
+  document.querySelector('.tab-btn[data-tab="schedules"]').click();
 }
 
 document.getElementById("save-entities").addEventListener("click", saveEntities);
 document.getElementById("save-settings").addEventListener("click", saveSettings);
 document.getElementById("save-windows").addEventListener("click", saveWindows);
 document.getElementById("add-window").addEventListener("click", () => {
-  document.getElementById("windows-list").appendChild(
-    renderWindow({ name: "", start: "00:00", end: "00:00", enabled: true })
-  );
+  const node = renderWindow({ name: "", start: "00:00", end: "00:00", enabled: true });
+  node.classList.add("expanded");
+  document.getElementById("windows-list").appendChild(node);
 });
 
 loadConfig();
 refreshStatus();
+initTabs();
 setInterval(refreshStatus, 10000);
